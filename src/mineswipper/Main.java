@@ -1,35 +1,61 @@
 package mineswipper;
 
-import java.util.Arrays;
+import java.util.Objects;
 import java.util.Scanner;
 
 
 public class Main {
+    private static final Scanner sc = new Scanner(System.in);
+
     public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-
         Board board = new Board();
+        Integer[] input;
+        int x;
+        int y;
 
-        System.out.println("Enter: x y");
-        int x = sc.nextInt(), y = sc.nextInt();
+        board.prettyPrint();
+        input = getInput();
+        x = input[0];
+        y = input[1];
+
         board.firstMove(x, y);
         board.prettyPrint();
-        System.out.println("\n\n\n\n\n");
 
-        x = sc.nextInt();
-        y = sc.nextInt();
+        input = getInput();
+        x = input[0];
+        y = input[1];
 
         char move = board.move(x, y);
-        while (move != 'l' | move != 'w'){
+        while (move != 'l' & move != 'w') {
             board.prettyPrint();
-            System.out.println("\n\n\n\n\n");
-            System.out.println("Enter: x y");
-            x = sc.nextInt();
-            y = sc.nextInt();
+
+            input = getInput();
+            x = input[0];
+            y = input[1];
             move = board.move(x, y);
         }
-            board.printMinesArray();
         board.prettyPrint();
+        if (move == 'l') {
+            System.out.println("You loose!");
+        } else {
+            System.out.println("You won!");
+        }
+    }
+
+    private static Integer[] getInput() {
+        int x;
+        int y;
+
+        try {
+            System.out.println("\nEnter: y x");
+            x = sc.nextInt();
+            y = sc.nextInt();
+        } catch (Exception e) {
+            System.out.println("Wrong input. Try again");
+            x = sc.nextInt();
+            y = sc.nextInt();
+        }
+        return new Integer[]{x, y};
     }
 }
 
@@ -41,6 +67,7 @@ class Board {
     private Boolean[][] flagsArray;
     private String[][] field;
     private final Integer[][] neighbours = {{0, 1}, {0, -1}, {1, 0}, {-1, 0}, {1, 1}, {-1, 1}, {1, -1}, {-1, -1}};
+    private int cellsOpen = 0;
 
     Board() {
         this(size, mine);
@@ -79,26 +106,68 @@ class Board {
         return mines;
     }
 
-    public void firstMove(int x, int y) {
-        int y1 = y--;
-        int x1 = size - x;
+    public void firstMove(int x1, int y1) {
+        y1--;
+        x1 = size - x1;
 
-        while (minesArray[x][y]) {
-            minesArray = generateMines();
+        try {
+            while (minesArray[x1][y1]) {
+                minesArray = generateMines();
+            }
+
+            makeMove(x1, y1);
+        } catch (ArrayIndexOutOfBoundsException e) {
+            System.out.println("Incorrect coordinates!");
         }
-        this.field[x1][y1] = String.valueOf(getNeighbours(x1, y1));
     }
 
-    public char move(int x, int y) {
-        int y1 = y--;
-        int x1 = size - x;
+    public char move(int x1, int y1) {
+        y1--;
+        x1 = size - x1;
 
-        if (minesArray[x1][y1]) {
-            return 'l';
+        try {
+            if (minesArray[x1][y1]) {
+                onLoose();
+                return 'l';
+            }
+
+            makeMove(x1, y1);
+
+            if (cellsOpen == size * size - mine) {
+                return 'w';
+            }
+        } catch (ArrayIndexOutOfBoundsException e) {
+            System.out.println("Incorrect coordinates!");
         }
-        this.field[x][y] = String.valueOf(getNeighbours(x, y));
 
         return 'm';
+    }
+
+    private void makeMove(int x, int y) {
+        int n = getNeighbours(x, y);
+        this.field[x][y] = String.valueOf(n);
+        cellsOpen++;
+
+        if (n == 0) {
+            for (Integer[] zip : this.neighbours) {
+                try {
+                    if (Objects.equals(this.field[x + zip[0]][y + zip[1]], " ")) {
+                        makeMove(x + zip[0], y + zip[1]);
+                    }
+                } catch (ArrayIndexOutOfBoundsException ignored) {
+                }
+            }
+        }
+    }
+
+    private void onLoose() {
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < size; j++) {
+                if (minesArray[i][j]) {
+                    field[i][j] = "M";
+                }
+            }
+        }
     }
 
     private int getNeighbours(int x, int y) {
@@ -114,15 +183,6 @@ class Board {
         return counter;
     }
 
-
-    public int getMine() {
-        return mine;
-    }
-
-    public int getSize() {
-        return size;
-    }
-
     public void printMinesArray() {
         for (Boolean[] i : minesArray) {
             for (Boolean b : i) {
@@ -132,24 +192,30 @@ class Board {
         }
     }
 
-    public void printField() {
-        for (String[] i : this.field) {
-            for (String b : i) {
-                System.out.print(b + " ");
-            }
-            System.out.println();
-        }
-    }
-
     public void prettyPrint() {
-        System.out.println(new String(new char[3 * size + size + 1]).replace("\0", "-"));
-        for (String[] i : this.field) {
-            for (String b : i) {
-                System.out.print("| " + b + " ");
+        int maxLength = String.valueOf(size).length();
+        String template = "%" + maxLength + "d";
+
+        System.out.println(" y");
+        System.out.println(new String(new char[maxLength + 1]).replace("\0", " ") + new String(new char[4 * size + 1]).replace("\0", "-"));
+
+        for (int i = 0; i < size; i++) {
+            System.out.printf(template, size - i);
+            System.out.print(" ");
+
+            for (int j = 0; j < size; j++) {
+                System.out.print("| " + field[i][j] + " ");
             }
             System.out.print("|\n");
-            System.out.println(new String(new char[3 * size + size + 1]).replace("\0", "-"));
+            System.out.println(new String(new char[maxLength + 1]).replace("\0", " ") + new String(new char[4 * size + 1]).replace("\0", "-"));
         }
+
+        System.out.print(new String(new char[maxLength + 3]).replace("\0", " "));
+
+        for (int j = 0; j < size; j++) {
+            System.out.printf("%-4d", j + 1);
+        }
+        System.out.print(" x\n");
     }
 }
 
